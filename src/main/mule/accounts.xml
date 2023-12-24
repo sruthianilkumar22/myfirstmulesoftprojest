@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<flow name="accountsFlow2" doc:id="832c12a7-e41f-4efb-b2c1-efb705f65abc" >
+		<scheduler doc:name="Scheduler" doc:id="550f94d4-df6d-47fc-9a1f-42e9fdfd7133" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="10"/>
+			</scheduling-strategy>
+		</scheduler>
+		<os:retrieve doc:name="Retrieve" doc:id="fac11a03-0c72-410f-8cbe-a661b9f15f32" key="lastAccounID" target="lastAccounID">
+			<os:default-value ><![CDATA[#[0]]]></os:default-value>
+		</os:retrieve>
+		<db:select doc:name="Select" doc:id="f027319a-03b9-4d68-861f-27fb3d4f5915" config-ref="Database_Config">
+			<db:sql ><![CDATA[SELECT * FROM accounts where postal = :postal AND accountID > :lastAccounID]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{postal:'777',lastAccounID:vars.lastAccounID}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="4f74c5d5-91cd-4852-a129-7f7b679d0b38" >
+			<when expression="#[not isEmpty(payload)]">
+				<os:store doc:name="lastAccounID" doc:id="6190b41b-0cd8-42ca-9396-dd4783e7fb85" key="lastAccounID">
+			<os:value><![CDATA[#[max(payload.*accountID)]]]></os:value>
+		</os:store>
+				<file:write doc:name="Write" doc:id="4e3073db-e998-4bd8-ac17-a6ccedd085b7" config-ref="File_Config" path="output/DBaccountspostal.csv" mode="APPEND">
+			<file:content><![CDATA[#[output application/csv header=false
+---
+payload]]]></file:content>
+		</file:write>
+				<logger level="INFO" doc:name="Logger" doc:id="5c4712fd-52ef-4029-b572-ca88f4be5a5b" message="#[output application/csv --- payload]" />
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="8a8cb784-51a1-48b4-bb51-730d8b5ebff1" />
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="accountsFlow1" doc:id="64940f2c-ad03-46f6-9ba6-efa53457c16e" initialState="stopped">
+		<db:listener doc:name="sync db accounts to csv" doc:id="9a6aa573-f28b-4251-bf16-deee187f7fcd" config-ref="Database_Config" table="accounts" watermarkColumn="accountID" idColumn="accountID">
+			<scheduling-strategy >
+				<fixed-frequency frequency="10"/>
+			</scheduling-strategy>
+		</db:listener>
+		<ee:transform doc:name="java to csv" doc:id="cfd32f0f-4e86-4abd-931d-51af4cc94c1c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv header=false
+---
+[payload]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write" doc:id="2128ebc9-8fc1-4145-af0a-fe41846f7112" config-ref="File_Config" path="output/DBaccounts.csv" mode="APPEND"/>
+		<logger level="INFO" doc:name="Logger" doc:id="384e8c8b-4712-4df4-810d-d80628a0d6b0" message="#[payload]"/>
+	</flow>
+	<flow name="accountsFlow" doc:id="937775f7-cb4d-4620-94f7-ebc9d2f0c009" initialState="stopped">
+		<file:listener doc:name="getCSVelements" doc:id="3f776fcb-faaf-43fa-a308-98b3ac51148a" config-ref="File_Config" directory="input" moveToDirectory="output" renameTo='#[attributes.fileName ++ ".backup"]'>
+			<scheduling-strategy>
+				<fixed-frequency />
+			</scheduling-strategy>
+			<file:matcher filenamePattern="*.csv" />
+		</file:listener>
+		<file:read doc:name="Read" doc:id="4efdb668-8e4a-4dd2-837f-13d5840c3dcd" config-ref="File_Config" path='C:\Users\sruth\Desktop\APDevFundamentals4.4_studentFiles_SP_27jun2022\APDevFundamentals4.4_studentFiles_SP_27jun2022\resources\accounts.csv'/>
+		<logger level="INFO" doc:name="payload" doc:id="cdcb33b1-37f3-45ba-a662-4d1ed16c66a3" message="#[payload]"/>
+	</flow>
+	<flow name="GETsfdc" doc:id="c1105cae-fe11-483a-a562-ea927ff040c9" >
+		<ee:transform doc:name="Transform Message" doc:id="a513ba2c-3969-430d-9922-544eefca5157" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

@@ -1,0 +1,12 @@
+http:
+ port: "8081"
+ 
+file:
+  accountsDir: "C:/Users/sruth/Desktop/APDevFundamentals4.4_studentFiles_SP_27jun2022/APDevFundamentals4.4_studentFiles_SP_27jun2022/resources"
+  
+db:
+  host: "mudb.mule-training.com"
+  port: "3306"
+  user: "mule"
+  password: "mule"
+  database: "training"
